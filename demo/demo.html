@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CustomsCalc — Документация</title>
+  <link rel="stylesheet" href="./demo.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-name">CustomsCalc</div>
+      <div class="sb-logo-sub">Беларусь · ЕАЭС · 2026</div>
+    </div>
+
+    <div class="sb-group">
+      <div class="sb-group-title">Начало</div>
+      <a class="sb-link" href="#overview">Обзор</a>
+      <a class="sb-link is-sub" href="#install">Установка</a>
+      <a class="sb-link" href="#quick-start">Быстрый старт</a>
+    </div>
+
+    <div class="sb-group">
+      <div class="sb-group-title">Справочник</div>
+      <a class="sb-link" href="#types">Типы данных</a>
+      <a class="sb-link is-sub" href="#enums">Enums</a>
+      <a class="sb-link is-sub" href="#type-fixed-cost">FixedCostItem</a>
+      <a class="sb-link is-sub" href="#type-rates">Rates</a>
+      <a class="sb-link is-sub" href="#type-result">CalcResult</a>
+    </div>
+
+    <div class="sb-group">
+      <div class="sb-group-title">API</div>
+      <a class="sb-link" href="#api-calculate">calculate()</a>
+      <a class="sb-link" href="#api-calc-duty">calcDutyEur()</a>
+      <a class="sb-link" href="#api-calc-util">calcUtil()</a>
+    </div>
+
+    <div class="sb-group">
+      <div class="sb-group-title">Демо</div>
+      <a class="sb-link" href="#demo">Интерактивное демо</a>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="content">
+
+    <!-- ─── Overview ─── -->
+    <section id="overview">
+      <h2>CustomsCalc</h2>
+      <p class="lead">
+        Библиотека для расчёта стоимости растаможки автомобилей в Беларуси по ставкам ЕАЭС.
+        Не знает ничего о DOM и не имеет зависимостей — подходит для любого окружения.
+      </p>
+
+      <div class="features">
+        <div class="feat"><span class="feat-ok">✓</span><span>Таможенная пошлина по таблицам ЕАЭС (под 3, 3–5, старше 5 лет)</span></div>
+        <div class="feat"><span class="feat-ok">✓</span><span>Утилизационный сбор — физические и юридические лица</span></div>
+        <div class="feat"><span class="feat-ok">✓</span><span>Льгота 50% по Указу №140</span></div>
+        <div class="feat"><span class="feat-ok">✓</span><span>Электромобили — отдельные ставки утилсбора, без пошлины</span></div>
+        <div class="feat"><span class="feat-ok">✓</span><span>Динамические фиксированные расходы в EUR / USD / BYN</span></div>
+        <div class="feat"><span class="feat-ok">✓</span><span>Комиссия банковского перевода</span></div>
+        <div class="feat"><span class="feat-ok">✓</span><span>Конвертация валют через произвольные курсы</span></div>
+        <div class="feat"><span class="feat-ok">✓</span><span>Итого в EUR и USD</span></div>
+      </div>
+
+      <h3 id="install">Установка</h3>
+      <pre><code>npm install customs-calculator</code></pre>
+
+      <p><strong>TypeScript / ESM:</strong></p>
+      <pre><code><span class="t-kw">import</span> { <span class="t-fn">calculate</span>, <span class="t-fn">calcDutyEur</span>, <span class="t-fn">calcUtil</span>, <span class="t-fn">Age</span>, <span class="t-fn">PersonType</span>, <span class="t-fn">EngineType</span>, <span class="t-fn">Currency</span> } <span class="t-kw">from</span> <span class="t-str">'customs-calculator'</span>;</code></pre>
+
+      <p><strong>CommonJS:</strong></p>
+      <pre><code><span class="t-kw">const</span> { <span class="t-fn">calculate</span>, <span class="t-fn">Age</span>, <span class="t-fn">EngineType</span> } = <span class="t-fn">require</span>(<span class="t-str">'customs-calculator'</span>);</code></pre>
+
+      <div class="callout callout-note">
+        <span class="callout-icon">ℹ</span>
+        <div>
+          <strong>Браузер без бандлера</strong> — подключите через CDN, экспорты будут доступны через <code>CustomsCalc</code>:<br>
+          <code>&lt;script src="https://unpkg.com/customs-calculator/dist/index.global.js"&gt;&lt;/script&gt;</code><br>
+          <code>&lt;script&gt; const result = CustomsCalc.calculate({ ... }); &lt;/script&gt;</code><br><br>
+          При наличии npm: <code>node_modules/customs-calculator/dist/index.global.js</code>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Quick Start ─── -->
+    <section id="quick-start">
+      <h2>Быстрый старт</h2>
+      <p class="lead">Три шага: задайте курсы валют, опишите расходы, вызовите <code>calculate()</code>.</p>
+
+      <pre><code><span class="t-kw">import</span> { <span class="t-fn">calculate</span>, <span class="t-fn">Age</span>, <span class="t-fn">PersonType</span>, <span class="t-fn">EngineType</span>, <span class="t-fn">Currency</span> } <span class="t-kw">from</span> <span class="t-str">'customs-calculator'</span>;
+
+<span class="t-cm">// 1. Курсы BYN (например, от НБРБ)</span>
+<span class="t-kw">const</span> rates = { <span class="t-key">usd</span>: <span class="t-num">2.82</span>, <span class="t-key">eur</span>: <span class="t-num">3.3</span> };
+
+<span class="t-cm">// 2. Фиксированные расходы — любой набор в любой валюте</span>
+<span class="t-kw">const</span> fixedCosts = [
+  { <span class="t-key">id</span>: <span class="t-str">'delivery'</span>,   <span class="t-key">amount</span>: <span class="t-num">1400</span>, <span class="t-key">currency</span>: <span class="t-str">'EUR'</span> },
+  { <span class="t-key">id</span>: <span class="t-str">'warehouse'</span>,  <span class="t-key">amount</span>: <span class="t-num">200</span>,  <span class="t-key">currency</span>: <span class="t-str">'BYN'</span> },
+  { <span class="t-key">id</span>: <span class="t-str">'epts'</span>,       <span class="t-key">amount</span>: <span class="t-num">70</span>,   <span class="t-key">currency</span>: <span class="t-str">'BYN'</span> },
+];
+
+<span class="t-cm">// 3. Расчёт</span>
+<span class="t-kw">const</span> result = <span class="t-fn">calculate</span>({
+  <span class="t-key">age</span>:        <span class="t-str">'under3'</span>,   <span class="t-cm">// возраст авто</span>
+  <span class="t-key">price</span>:      <span class="t-num">15000</span>,      <span class="t-cm">// стоимость</span>
+  <span class="t-key">currency</span>:   <span class="t-str">'EUR'</span>,      <span class="t-cm">// валюта цены</span>
+  <span class="t-key">engineType</span>: <span class="t-str">'fuel'</span>,     <span class="t-cm">// тип двигателя</span>
+  <span class="t-key">volume</span>:     <span class="t-num">2000</span>,       <span class="t-cm">// объём, см³</span>
+  <span class="t-key">face</span>:       <span class="t-str">'individual'</span>, <span class="t-cm">// физ. лицо</span>
+  <span class="t-key">discount</span>:   <span class="t-bool">false</span>,      <span class="t-cm">// льгота 50%</span>
+  fixedCosts,
+  rates,
+});
+
+console.log(result.totalEur); <span class="t-cm">// итого в EUR</span></code></pre>
+
+      <h3>TypeScript с Enums</h3>
+      <pre><code><span class="t-kw">import</span> { <span class="t-fn">calculate</span>, <span class="t-fn">Age</span>, <span class="t-fn">PersonType</span>, <span class="t-fn">EngineType</span>, <span class="t-fn">Currency</span> } <span class="t-kw">from</span> <span class="t-str">'customs-calculator'</span>;
+
+<span class="t-cm">// те же rates и fixedCosts...</span>
+<span class="t-kw">const</span> result = <span class="t-fn">calculate</span>({
+  <span class="t-key">age</span>:        <span class="t-fn">Age</span>.<span class="t-key">Under3</span>,
+  <span class="t-key">price</span>:      <span class="t-num">15000</span>,
+  <span class="t-key">currency</span>:   <span class="t-fn">Currency</span>.<span class="t-key">EUR</span>,
+  <span class="t-key">engineType</span>: <span class="t-fn">EngineType</span>.<span class="t-key">Fuel</span>,
+  <span class="t-key">volume</span>:     <span class="t-num">2000</span>,
+  <span class="t-key">face</span>:       <span class="t-fn">PersonType</span>.<span class="t-key">Individual</span>,
+  <span class="t-key">discount</span>:   <span class="t-bool">false</span>,
+  fixedCosts,
+  rates,
+});</code></pre>
+
+      <h3>С комиссией банковского перевода</h3>
+      <pre><code><span class="t-kw">const</span> result = <span class="t-fn">calculate</span>({
+  <span class="t-cm">// ...остальные параметры...</span>
+  <span class="t-key">commission</span>: <span class="t-num">1.5</span>,  <span class="t-cm">// +1.5% к цене авто в totalEur</span>
+  fixedCosts,
+  rates,
+});</code></pre>
+
+      <h3>Прямой вызов низкоуровневых функций</h3>
+      <pre><code><span class="t-kw">import</span> { <span class="t-fn">calcDutyEur</span>, <span class="t-fn">calcUtil</span> } <span class="t-kw">from</span> <span class="t-str">'customs-calculator'</span>;
+
+<span class="t-cm">// Только пошлина, без остального</span>
+<span class="t-kw">const</span> duty = <span class="t-fn">calcDutyEur</span>(<span class="t-str">'under3'</span>, <span class="t-num">15000</span>, <span class="t-num">2000</span>);
+
+<span class="t-cm">// Только утилизационный сбор</span>
+<span class="t-kw">const</span> util = <span class="t-fn">calcUtil</span>(<span class="t-str">'individual'</span>, <span class="t-str">'fuel'</span>, <span class="t-num">2000</span>, <span class="t-str">'under3'</span>);</code></pre>
+    </section>
+
+    <!-- ─── Types ─── -->
+    <section id="types">
+      <h2>Типы данных</h2>
+
+      <h3 id="enums">Enums</h3>
+      <p>Строковые значения совместимы с обычным JS — можно передавать литералы <code>'under3'</code> вместо <code>Age.Under3</code>.</p>
+      <table>
+        <tr><th>Enum</th><th>Значения</th></tr>
+        <tr>
+          <td><span class="t-name">Age</span></td>
+          <td><span class="t-type">Under3 = 'under3'</span>, <span class="t-type">From3To5 = '3to5'</span>, <span class="t-type">Over5 = 'over5'</span></td>
+        </tr>
+        <tr>
+          <td><span class="t-name">PersonType</span></td>
+          <td><span class="t-type">Individual = 'individual'</span>, <span class="t-type">Legal = 'legal'</span></td>
+        </tr>
+        <tr>
+          <td><span class="t-name">EngineType</span></td>
+          <td><span class="t-type">Fuel = 'fuel'</span>, <span class="t-type">Electric = 'electric'</span></td>
+        </tr>
+        <tr>
+          <td><span class="t-name">Currency</span></td>
+          <td><span class="t-type">EUR = 'EUR'</span>, <span class="t-type">USD = 'USD'</span>, <span class="t-type">BYN = 'BYN'</span></td>
+        </tr>
+      </table>
+      <pre><code><span class="t-kw">import</span> { <span class="t-fn">Age</span>, <span class="t-fn">PersonType</span>, <span class="t-fn">EngineType</span>, <span class="t-fn">Currency</span> } <span class="t-kw">from</span> <span class="t-str">'customs-calculator'</span>;</code></pre>
+
+      <h3 id="type-fixed-cost">FixedCostItem</h3>
+      <p>Описывает один фиксированный расход. Передаётся в массиве <code>fixedCosts</code>.</p>
+      <table>
+        <tr><th>Поле</th><th>Тип</th><th>Описание</th></tr>
+        <tr>
+          <td><span class="t-name">id</span></td>
+          <td><span class="t-type">string</span></td>
+          <td>Произвольный идентификатор. Используется UI-слоем для привязки к элементу вывода.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">amount</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Сумма расхода.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">currency</span></td>
+          <td><span class="t-type">'EUR' | 'USD' | 'BYN'</span></td>
+          <td>Валюта суммы. Библиотека автоматически конвертирует в EUR для итогового расчёта.</td>
+        </tr>
+      </table>
+      <pre><code>{ <span class="t-key">id</span>: <span class="t-str">'delivery'</span>, <span class="t-key">amount</span>: <span class="t-num">1400</span>, <span class="t-key">currency</span>: <span class="t-str">'EUR'</span> }
+{ <span class="t-key">id</span>: <span class="t-str">'warehouse'</span>, <span class="t-key">amount</span>: <span class="t-num">200</span>,  <span class="t-key">currency</span>: <span class="t-str">'BYN'</span> }</code></pre>
+
+      <h3 id="type-rates">Rates</h3>
+      <p>Курсы валют — рублей (BYN) за единицу. Получаются, например, из API НБРБ.</p>
+      <table>
+        <tr><th>Поле</th><th>Тип</th><th>Описание</th></tr>
+        <tr>
+          <td><span class="t-name">usd</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Сколько BYN стоит 1 USD.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">eur</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Сколько BYN стоит 1 EUR.</td>
+        </tr>
+      </table>
+      <pre><code>{ <span class="t-key">usd</span>: <span class="t-num">2.82</span>, <span class="t-key">eur</span>: <span class="t-num">3.3</span> }</code></pre>
+
+      <h3 id="type-result">CalcResult</h3>
+      <p>Объект, который возвращает <a href="#api-calculate"><code>calculate()</code></a>. Все суммы — числа с плавающей точкой; округляйте по необходимости.</p>
+      <table class="ret-table">
+        <tr><th>Поле</th><th>Тип</th><th>Описание</th></tr>
+        <tr>
+          <td><span class="t-name">priceEur</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Стоимость авто в EUR (без комиссии).</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">priceUsd</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Стоимость авто в USD (без комиссии).</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">dutyEur</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Таможенная пошлина, EUR. <code>0</code> для электромобилей.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">dutyNote</span></td>
+          <td><span class="t-type">string</span></td>
+          <td>Пояснение к пошлине: <code>'(электромобиль)'</code>, <code>'(−50% Указ №140)'</code> или пустая строка.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">utilByn</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Утилизационный сбор, BYN. Постановление №195 (апрель 2026).</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">commissionEur</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Сумма комиссии банковского перевода в EUR. <code>0</code>, если <code>commission</code> не задана.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">totalEur</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Итоговая стоимость в EUR: цена + комиссия + пошлина + все фиксированные расходы + утилсбор.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">totalUsd</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Итоговая стоимость в USD.</td>
+        </tr>
+      </table>
+    </section>
+
+    <!-- ─── API ─── -->
+    <section id="api">
+      <h2>API Reference</h2>
+
+      <!-- calculate() -->
+      <h3 id="api-calculate">calculate(params)</h3>
+      <p>Основная функция. Принимает все параметры сделки, возвращает полный расчёт.</p>
+
+      <div class="sig">
+        <span style="color:var(--tok-kw)">import</span> { <span style="color:var(--tok-fn)">calculate</span> } <span style="color:var(--tok-kw)">from</span> <span style="color:var(--tok-str)">'customs-calculator'</span><br>
+        <span style="color:var(--tok-fn)">calculate</span>(<span style="color:var(--type-c)">params</span>: <span style="color:var(--type-c)">CalculateParams</span>): <span style="color:var(--type-c)">CalculateResult</span>
+      </div>
+
+      <h4>Параметры</h4>
+      <table>
+        <tr><th>Параметр</th><th>Тип</th><th></th><th>Описание</th></tr>
+        <tr>
+          <td><span class="t-name">age</span></td>
+          <td><span class="t-type">Age</span></td>
+          <td><span class="t-req">req</span></td>
+          <td>Возраст автомобиля. Определяет таблицу ставок пошлины и ключ утилсбора.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">price</span></td>
+          <td><span class="t-type">number</span></td>
+          <td><span class="t-req">req</span></td>
+          <td>Стоимость авто в валюте, указанной в <code>currency</code>.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">currency</span></td>
+          <td><span class="t-type">Currency</span></td>
+          <td><span class="t-req">req</span></td>
+          <td>Валюта параметра <code>price</code>. Регистр не важен.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">engineType</span></td>
+          <td><span class="t-type">EngineType</span></td>
+          <td><span class="t-req">req</span></td>
+          <td>Тип двигателя. Для <code>'electric'</code> пошлина равна 0; утилсбор — по отдельной строке таблицы.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">volume</span></td>
+          <td><span class="t-type">number</span></td>
+          <td><span class="t-req">req*</span></td>
+          <td>Объём двигателя, см³. Игнорируется, если <code>engineType === 'electric'</code>.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">face</span></td>
+          <td><span class="t-type">PersonType</span></td>
+          <td><span class="t-req">req</span></td>
+          <td>Физическое (<code>'individual'</code>) или юридическое (<code>'legal'</code>) лицо. Влияет на таблицу утилсбора.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">discount</span></td>
+          <td><span class="t-type">boolean</span></td>
+          <td><span class="t-req">req</span></td>
+          <td>Таможенная льгота 50% по Указу №140. Применяется только к пошлине, не к утилсбору.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">fixedCosts</span></td>
+          <td><span class="t-type">FixedCostItem[]</span></td>
+          <td><span class="t-req">req</span></td>
+          <td>Массив фиксированных расходов. Может быть пустым. Каждый расход конвертируется в EUR для расчёта итога.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">rates</span></td>
+          <td><span class="t-type">Rates</span></td>
+          <td><span class="t-req">req</span></td>
+          <td>Курсы USD и EUR к BYN. Используются для конвертации цены, фиксированных расходов в BYN и утилсбора.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">commission</span></td>
+          <td><span class="t-type">number</span></td>
+          <td><span class="t-opt">opt</span></td>
+          <td>Комиссия банковского перевода, %. Прибавляется к цене в итоге: <code>priceEur × commission / 100</code>. На пошлину не влияет.</td>
+        </tr>
+      </table>
+
+      <div class="callout callout-note">
+        <span class="callout-icon">ℹ</span>
+        <div>
+          <strong>Формула итога:</strong><br>
+          <code>totalEur = priceEur + commissionEur + dutyEur + Σ(fixedCosts → EUR) + utilByn / rates.eur</code>
+        </div>
+      </div>
+
+      <h4>Ставки пошлины (встроенные таблицы)</h4>
+      <p>Ставки соответствуют решению Совета ЕЭК для физических лиц.</p>
+
+      <p><strong>До 3 лет</strong> — MAX(% от стоимости в EUR, EUR × см³):</p>
+      <table>
+        <tr><th>До, EUR</th><th>% от цены</th><th>EUR/см³</th></tr>
+        <tr><td>8 500</td><td>54%</td><td>2.50</td></tr>
+        <tr><td>16 700</td><td>48%</td><td>3.50</td></tr>
+        <tr><td>42 300</td><td>48%</td><td>5.50</td></tr>
+        <tr><td>84 500</td><td>48%</td><td>7.50</td></tr>
+        <tr><td>169 000</td><td>48%</td><td>15.00</td></tr>
+        <tr><td>∞</td><td>48%</td><td>20.00</td></tr>
+      </table>
+
+      <p><strong>От 3 до 5 лет</strong> и <strong>старше 5 лет</strong> — EUR × см³ (ставка по объёму):</p>
+      <table>
+        <tr><th>До, см³</th><th>3–5 лет (EUR/см³)</th><th>>5 лет (EUR/см³)</th></tr>
+        <tr><td>1 000</td><td>1.50</td><td>3.00</td></tr>
+        <tr><td>1 500</td><td>1.70</td><td>3.20</td></tr>
+        <tr><td>1 800</td><td>2.50</td><td>3.50</td></tr>
+        <tr><td>2 300</td><td>2.70</td><td>4.80</td></tr>
+        <tr><td>3 000</td><td>3.00</td><td>5.00</td></tr>
+        <tr><td>∞</td><td>3.60</td><td>5.70</td></tr>
+      </table>
+
+      <hr>
+
+      <!-- calcDutyEur() -->
+      <h3 id="api-calc-duty">calcDutyEur(age, priceEur, volumeCc)</h3>
+      <p>
+        Низкоуровневая функция. Вычисляет таможенную пошлину только для топливных автомобилей.
+        Полезна, если нужно узнать пошлину в отрыве от остальных расходов.
+      </p>
+
+      <div class="sig">
+        <span style="color:var(--tok-kw)">import</span> { <span style="color:var(--tok-fn)">calcDutyEur</span> } <span style="color:var(--tok-kw)">from</span> <span style="color:var(--tok-str)">'customs-calculator'</span><br>
+        <span style="color:var(--tok-fn)">calcDutyEur</span>(<span style="color:var(--type-c)">age</span>: <span style="color:var(--type-c)">Age</span>, <span style="color:var(--type-c)">priceEur</span>: <span style="color:var(--type-c)">number</span>, <span style="color:var(--type-c)">volumeCc</span>: <span style="color:var(--type-c)">number</span>): <span style="color:var(--type-c)">number</span>
+      </div>
+
+      <table>
+        <tr><th>Параметр</th><th>Тип</th><th>Описание</th></tr>
+        <tr>
+          <td><span class="t-name">age</span></td>
+          <td><span class="t-type">Age</span></td>
+          <td>Возраст автомобиля.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">priceEur</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Стоимость авто в EUR.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">volumeCc</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Объём двигателя, см³.</td>
+        </tr>
+      </table>
+
+      <p><strong>Возвращает:</strong> пошлину в EUR.</p>
+
+      <div class="callout callout-warn">
+        <span class="callout-icon">⚠</span>
+        <div>Функция не знает о типе двигателя. Вызывайте её только для топливных авто — для электромобилей пошлина всегда <code>0</code>.</div>
+      </div>
+
+      <pre><code><span class="t-cm">// BMW X5, 3.0 л, возраст 1 год, цена 50 000 EUR</span>
+<span class="t-fn">calcDutyEur</span>(<span class="t-str">'under3'</span>, <span class="t-num">50000</span>, <span class="t-num">3000</span>);
+<span class="t-cm">// → MAX(50000 × 0.48, 3000 × 5.5) = MAX(24000, 16500) = 24000</span>
+
+<span class="t-cm">// VW Golf, 1.6 л, возраст 4 года, цена 12 000 EUR</span>
+<span class="t-fn">calcDutyEur</span>(<span class="t-str">'3to5'</span>, <span class="t-num">12000</span>, <span class="t-num">1600</span>);
+<span class="t-cm">// → 1600 × 2.5 = 4000</span></code></pre>
+
+      <hr>
+
+      <!-- calcUtil() -->
+      <h3 id="api-calc-util">calcUtil(face, engineType, volumeCc, age)</h3>
+      <p>
+        Возвращает утилизационный сбор в BYN по Постановлению №195 (апрель 2026).
+        Ставки для физических лиц зависят только от возраста; для юридических — от типа двигателя, объёма и возраста.
+      </p>
+
+      <div class="sig">
+        <span style="color:var(--tok-kw)">import</span> { <span style="color:var(--tok-fn)">calcUtil</span> } <span style="color:var(--tok-kw)">from</span> <span style="color:var(--tok-str)">'customs-calculator'</span><br>
+        <span style="color:var(--tok-fn)">calcUtil</span>(<span style="color:var(--type-c)">face</span>: <span style="color:var(--type-c)">PersonType</span>, <span style="color:var(--type-c)">engineType</span>: <span style="color:var(--type-c)">EngineType</span>, <span style="color:var(--type-c)">volumeCc</span>: <span style="color:var(--type-c)">number</span>, <span style="color:var(--type-c)">age</span>: <span style="color:var(--type-c)">Age</span>): <span style="color:var(--type-c)">number</span>
+      </div>
+
+      <table>
+        <tr><th>Параметр</th><th>Тип</th><th>Описание</th></tr>
+        <tr>
+          <td><span class="t-name">face</span></td>
+          <td><span class="t-type">PersonType</span></td>
+          <td>Физическое или юридическое лицо.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">engineType</span></td>
+          <td><span class="t-type">EngineType</span></td>
+          <td>Тип двигателя. Для <code>'electric'</code> применяется отдельная строка таблицы юрлиц.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">volumeCc</span></td>
+          <td><span class="t-type">number</span></td>
+          <td>Объём двигателя, см³. Для электромобилей игнорируется.</td>
+        </tr>
+        <tr>
+          <td><span class="t-name">age</span></td>
+          <td><span class="t-type">Age</span></td>
+          <td>Возраст авто. <code>'3to5'</code> и <code>'over5'</code> попадают в группу <em>«от 3 лет»</em>.</td>
+        </tr>
+      </table>
+
+      <p><strong>Возвращает:</strong> утилизационный сбор в BYN.</p>
+
+      <h4>Ставки утилизационного сбора (физические лица, BYN)</h4>
+      <table>
+        <tr><th>Возраст</th><th>Сумма</th></tr>
+        <tr><td>До 3 лет</td><td>624.92</td></tr>
+        <tr><td>От 3 лет</td><td>1 282.02</td></tr>
+      </table>
+
+      <h4>Ставки утилизационного сбора (юридические лица, BYN)</h4>
+      <table>
+        <tr><th>Тип</th><th>Объём, см³</th><th>До 3 лет</th><th>От 3 лет</th></tr>
+        <tr><td>Электро</td><td>—</td><td>1 229.28</td><td>2 950.38</td></tr>
+        <tr><td>Топливо</td><td>до 1 000</td><td>6 811.16</td><td>17 386.97</td></tr>
+        <tr><td>Топливо</td><td>до 2 000</td><td>25 226.22</td><td>44 374.56</td></tr>
+        <tr><td>Топливо</td><td>до 3 000</td><td>70 885.91</td><td>107 322.94</td></tr>
+        <tr><td>Топливо</td><td>до 3 500</td><td>81 393.68</td><td>124 611.62</td></tr>
+        <tr><td>Топливо</td><td>∞</td><td>103 649.00</td><td>136 253.33</td></tr>
+      </table>
+
+      <pre><code><span class="t-cm">// Физлицо, авто до 3 лет</span>
+<span class="t-fn">calcUtil</span>(<span class="t-str">'individual'</span>, <span class="t-str">'fuel'</span>, <span class="t-num">2000</span>, <span class="t-str">'under3'</span>); <span class="t-cm">// → 624.92</span>
+
+<span class="t-cm">// Юрлицо, топливо 1.6 л, старше 3 лет</span>
+<span class="t-fn">calcUtil</span>(<span class="t-str">'legal'</span>, <span class="t-str">'fuel'</span>, <span class="t-num">1600</span>, <span class="t-str">'over5'</span>); <span class="t-cm">// → 44374.56</span>
+
+<span class="t-cm">// Юрлицо, электромобиль до 3 лет</span>
+<span class="t-fn">calcUtil</span>(<span class="t-str">'legal'</span>, <span class="t-str">'electric'</span>, <span class="t-num">0</span>, <span class="t-str">'under3'</span>); <span class="t-cm">// → 1229.28</span></code></pre>
+    </section>
+
+    <!-- ─── Demo ─── -->
+    <section id="demo">
+      <h2>Интерактивное демо</h2>
+      <p class="lead">Меняйте параметры — расчёт и фрагмент кода обновляются мгновенно.</p>
+
+      <div class="demo-wrap">
+
+        <!-- Inputs -->
+        <div class="demo-panel">
+          <div class="demo-panel-title">Параметры</div>
+
+          <div class="df">
+            <label>Возраст авто</label>
+            <div class="radios" id="grp-age">
+              <label class="rb on"><input type="radio" name="d-age" value="under3" checked>до 3 лет</label>
+              <label class="rb"><input type="radio" name="d-age" value="3to5">3–5 лет</label>
+              <label class="rb"><input type="radio" name="d-age" value="over5">старше 5</label>
+            </div>
+          </div>
+
+          <div class="df">
+            <label>Стоимость авто</label>
+            <div class="df-price">
+              <input type="number" id="d-price" value="12000" min="0">
+              <select id="d-currency">
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="df">
+            <label>Тип двигателя</label>
+            <div class="radios" id="grp-engine">
+              <label class="rb on"><input type="radio" name="d-engine" value="fuel" checked>Топливо</label>
+              <label class="rb"><input type="radio" name="d-engine" value="electric">Электро</label>
+            </div>
+          </div>
+
+          <div class="df" id="d-volume-wrap">
+            <label>Объём двигателя, см³</label>
+            <input type="number" id="d-volume" value="2000" min="0">
+          </div>
+
+          <div class="df">
+            <label>Растамаживает</label>
+            <div class="radios" id="grp-face">
+              <label class="rb on"><input type="radio" name="d-face" value="individual" checked>Физ. лицо</label>
+              <label class="rb"><input type="radio" name="d-face" value="legal">Юр. лицо</label>
+            </div>
+          </div>
+
+          <div class="df" id="d-discount-wrap">
+            <label class="chk-row">
+              <input type="checkbox" id="d-discount">
+              <span>Льгота 50% (Указ №140)</span>
+            </label>
+          </div>
+
+          <div class="df">
+            <label>Комиссия перевода, %</label>
+            <input type="number" id="d-commission" value="0" min="0" step="0.1">
+          </div>
+
+          <div class="df">
+            <label>Курсы BYN за единицу</label>
+            <div class="df-rates">
+              <input type="number" id="d-usd" value="2.82" step="0.01" placeholder="USD">
+              <input type="number" id="d-eur" value="3.3" step="0.01" placeholder="EUR">
+            </div>
+          </div>
+        </div>
+
+        <!-- Output -->
+        <div>
+          <div class="result-panel">
+            <div class="result-panel-hdr">Результат</div>
+            <div class="result-rows">
+              <div class="rrow"><span class="rl">Стоимость авто</span><span class="rd"></span><span class="rv" id="res-price">—</span></div>
+              <div class="rrow"><span class="rl">Комиссия перевода</span><span class="rd"></span><span class="rv" id="res-commission">—</span></div>
+              <div class="rrow"><span class="rl">Таможенная пошлина</span><span class="rd"></span><span class="rv" id="res-duty">—</span></div>
+              <div class="rrow"><span class="rl">Утилизационный сбор</span><span class="rd"></span><span class="rv" id="res-util">—</span></div>
+            </div>
+            <div class="total-box">
+              <div>
+                <div class="tb-label">Итого</div>
+                <div class="tb-alt" id="res-total-usd">—</div>
+              </div>
+              <div class="tb-val" id="res-total-eur">—</div>
+            </div>
+          </div>
+
+          <div class="snippet-wrap">
+            <pre><code id="live-code"></code></pre>
+            <button class="copy-btn" id="copy-btn">copy</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="./index.global.js"></script>
+<script src="./demo.js"></script>
+
+</body>
+</html>

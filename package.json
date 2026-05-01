@@ -1,0 +1,55 @@
+{
+  "name": "customs-calculator",
+  "version": "1.0.0",
+  "description": "Customs duty calculator for importing vehicles to Belarus (EAEU rates). TypeScript, ESM/CJS, zero dependencies.",
+  "author": "ArtuhovichVladislav",
+  "license": "MIT",
+  "keywords": [
+    "customs",
+    "duty",
+    "belarus",
+    "eaeu",
+    "vehicle",
+    "import",
+    "calculator",
+    "растаможка",
+    "таможня"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArtuhovichVladislav/customs-calculator.git"
+  },
+  "homepage": "https://github.com/ArtuhovichVladislav/customs-calculator#readme",
+  "bugs": {
+    "url": "https://github.com/ArtuhovichVladislav/customs-calculator/issues"
+  },
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "tsup": {
+    "entry": ["src/index.ts"],
+    "format": ["cjs", "esm", "iife"],
+    "globalName": "CustomsCalc",
+    "dts": true,
+    "clean": true
+  }
+}
