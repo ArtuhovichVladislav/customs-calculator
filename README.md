@@ -1,6 +1,6 @@
 # customs-calculator
 
-**[Интерактивное демо](https://artuhovichvladislav.github.io/customs-calculator/)**
+**[Интерактивное демо](https://artuhovichvladislav.github.io/customs-calculator-docs/)**
 
 Библиотека для расчёта стоимости растаможки автомобилей в Беларуси по ставкам ЕАЭС.
 
