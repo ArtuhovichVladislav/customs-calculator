@@ -11,9 +11,27 @@ export enum PersonType {
   Legal = 'legal',
 }
 
+/**
+ * Тип силовой установки. Разделяющий признак для пошлины — механическая связь ДВС с колёсами
+ * (разъяснение ГТК об уточнении кодов ТН ВЭД): связан → 8703 40/50/60/70, обычный легковой
+ * автомобиль; только вращает генератор → 8703 80, как у электромобиля.
+ */
 export enum EngineType {
+  /** ДВС без электрической установки (включая ТС с системой start-stop). */
   Fuel = 'fuel',
+  /** Только электродвигатель, без ДВС. ТН ВЭД 8703 80, строка 1.1 перечня утильсбора. */
   Electric = 'electric',
+  /** Мягкий гибрид 48 В: электромотор не может вести ТС самостоятельно. ТН ВЭД 8703 40/50. */
+  HybridMhev = 'hybrid_mhev',
+  /** Полный гибрид без внешней зарядки. ТН ВЭД 8703 40/50. */
+  HybridHev = 'hybrid_hev',
+  /** Подзаряжаемый гибрид, ДВС связан с колёсами. ТН ВЭД 8703 60/70. */
+  HybridPhev = 'hybrid_phev',
+  /**
+   * Последовательный гибрид (range extender): ДВС механически не связан с колёсами,
+   * служит приводом генератора. ТН ВЭД 8703 80 — как у электромобиля, отсюда пошлина 15%.
+   */
+  HybridErev = 'hybrid_erev',
 }
 
 export enum Currency {
@@ -43,6 +61,7 @@ export interface CalculateParams {
   volume: number;
   face: PersonType;
   rates: Rates;
+  /** Льгота 50% по Указу №140. Для `PersonType.Legal` игнорируется — льготы у юрлиц нет. */
   discount?: boolean;
   fixedCosts?: FixedCost[];
   commission?: number;
@@ -52,7 +71,13 @@ export interface CalculateResult {
   priceEur: number;
   priceUsd: number;
   dutyEur: number;
+  /**
+   * Уточнение к пошлине без оформления — скобки добавляет вызывающий:
+   * `'электромобиль'`, `'гибрид EREV, −50% Указ №140'`, `'−50% Указ №140'` или `''`.
+   */
   dutyNote: string;
+  /** НДС 20% от стоимости с учётом пошлины. Ноль там, где НДС не начисляется отдельно. */
+  vatEur: number;
   utilByn: number;
   commissionEur: number;
   totalEur: number;
@@ -72,12 +97,16 @@ interface DutyByVolumeRow {
   eurPerCc: number;
 }
 
-interface UtilLegalRow {
-  type: EngineType;
-  maxCc: number;
+interface UtilAgeRow {
   under3: number;
   over3: number;
 }
+
+interface UtilVolumeRow extends UtilAgeRow {
+  maxCc: number;
+}
+
+type UtilAgeKey = keyof UtilAgeRow;
 
 // ── Lookup tables ────────────────────────────────────────────────────────────
 
@@ -108,19 +137,50 @@ const DUTY_OVER5: readonly DutyByVolumeRow[] = [
   { maxCc: Infinity, eurPerCc: 5.7 },
 ] as const;
 
-const UTIL_INDIVIDUAL: Record<'under3' | 'over3', number> = {
+// Таблицы выше — Приложение 2 к Решению Совета ЕЭК от 20.12.2017 № 107, позиция 8703.
+export const DUTY_RATES_SOURCE = 'https://www.alta.ru/tamdoc/17sr0107/';
+
+// Ставки утильсбора — раздел 1 перечня (UTIL_RATES_SOURCE): категории M1 и M1G.
+// M2/M3 и N1—N3 идут по другим таблицам и здесь не реализованы.
+export const UTIL_RATES_EFFECTIVE_FROM = '2026-04-29';
+export const UTIL_RATES_SOURCE = 'https://www.tws.by/tws/util-fee';
+
+/** Строка 1.3 перечня: ввозимые физлицами для личного пользования. От типа двигателя не зависит. */
+const UTIL_INDIVIDUAL: UtilAgeRow = {
   under3: 624.92,
   over3:  1282.02,
 };
 
-const UTIL_LEGAL: readonly UtilLegalRow[] = [
-  { type: EngineType.Electric, maxCc: Infinity, under3: 1229.28,   over3: 2950.38   },
-  { type: EngineType.Fuel,     maxCc: 1000,     under3: 6811.16,   over3: 17386.97  },
-  { type: EngineType.Fuel,     maxCc: 2000,     under3: 25226.22,  over3: 44374.56  },
-  { type: EngineType.Fuel,     maxCc: 3000,     under3: 70885.91,  over3: 107322.94 },
-  { type: EngineType.Fuel,     maxCc: 3500,     under3: 81393.68,  over3: 124611.62 },
-  { type: EngineType.Fuel,     maxCc: Infinity, under3: 103649.00, over3: 136253.33 },
+/** Строка 1.1 перечня: с электродвигателями, кроме ТС с гибридными установками любого типа. */
+const UTIL_LEGAL_ELECTRIC: UtilAgeRow = {
+  under3: 1229.28,
+  over3:  2950.38,
+};
+
+/** Строка 1.2 перечня: по объёму двигателя. Сюда попадают ДВС и все виды гибридов. */
+const UTIL_LEGAL_BY_VOLUME: readonly UtilVolumeRow[] = [
+  { maxCc: 1000,     under3: 6811.16,   over3: 17386.97  },
+  { maxCc: 2000,     under3: 25226.22,  over3: 44374.56  },
+  { maxCc: 3000,     under3: 70885.91,  over3: 107322.94 },
+  { maxCc: 3500,     under3: 81393.68,  over3: 124611.62 },
+  { maxCc: Infinity, under3: 103649.00, over3: 136253.33 },
 ] as const;
+
+/** Последовательный гибрид (ТН ВЭД 8703 80): пошлина 15% от таможенной стоимости. */
+const HYBRID_EREV_DUTY_PCT = 0.15;
+
+/** НДС начисляется на стоимость с учётом пошлины. Утильсбор в базу НДС не входит. */
+const VAT_PCT = 0.20;
+
+/** Уточнение к пошлине по типу двигателя; у обычного ДВС его нет. */
+const ENGINE_LABELS: Record<EngineType, string> = {
+  [EngineType.Fuel]:       '',
+  [EngineType.Electric]:   'электромобиль',
+  [EngineType.HybridMhev]: 'гибрид MHEV',
+  [EngineType.HybridHev]:  'гибрид HEV',
+  [EngineType.HybridPhev]: 'гибрид PHEV',
+  [EngineType.HybridErev]: 'гибрид EREV',
+};
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -133,9 +193,53 @@ function toEur(amount: number, currency: Currency, rates: Rates): number {
   }
 }
 
+/**
+ * Начисляется ли НДС отдельной строкой.
+ *
+ * У физлица по обычному автомобилю — нет: единые ставки названы «ставки таможенных пошлин,
+ * налогов», НДС уже внутри них. EREV — да: 8703 80 идёт по совокупному платежу, где пошлина
+ * и НДС раздельно. У юрлица — да, ввоз как товара; кроме чистого электромобиля, он освобождён.
+ */
+function vatApplies(face: PersonType, engineType: EngineType): boolean {
+  if (engineType === EngineType.Electric) return false;
+  return face === PersonType.Legal || engineType === EngineType.HybridErev;
+}
+
+/**
+ * Уточнение к пошлине без оформления: `'гибрид EREV, −50% Указ №140'`.
+ * Скобки, тире и прочую подачу добавляет вызывающий — тут только данные.
+ * Пустая строка, если уточнять нечего: обычный ДВС без льготы.
+ */
+function buildDutyNote(engineType: EngineType, discount: boolean): string {
+  const parts: string[] = [];
+  const label = ENGINE_LABELS[engineType];
+  if (label) parts.push(label);
+  // У электромобиля пошлины нет — льготу не упоминаем.
+  if (discount && engineType !== EngineType.Electric) parts.push('−50% Указ №140');
+  return parts.join(', ');
+}
+
 // ── Exported functions ───────────────────────────────────────────────────────
 
-export function calcDutyEur(age: Age, priceEur: number, volumeCc: number): number {
+/**
+ * Таможенная пошлина в EUR по единым ставкам для личного пользования (DUTY_RATES_SOURCE).
+ *
+ * ВНИМАНИЕ: результат не зависит от `PersonType`. У юрлица применяются ставки ЕТТ, а они
+ * другие — новый автомобиль у физлица идёт по 48–54% от стоимости против ~15–17% в ЕТТ.
+ * Таблица ЕТТ не реализована, для юрлица это осознанное упрощение.
+ *
+ * `Electric` → 0 — тарифная льгота Указа №428, а не ставка позиции: она ограничена годовой
+ * квотой и только для ТС на одних электродвигателях. Вне квоты 8703 80 стоит те же 15%.
+ */
+export function calcDutyEur(
+  age: Age,
+  priceEur: number,
+  volumeCc: number,
+  engineType: EngineType = EngineType.Fuel,
+): number {
+  if (engineType === EngineType.Electric) return 0;
+  if (engineType === EngineType.HybridErev) return priceEur * HYBRID_EREV_DUTY_PCT;
+
   if (age === Age.Under3) {
     for (const row of DUTY_UNDER3) {
       if (priceEur <= row.maxEur) {
@@ -151,18 +255,27 @@ export function calcDutyEur(age: Age, priceEur: number, volumeCc: number): numbe
   return 0;
 }
 
+/**
+ * Утилизационный сбор в BYN для категорий M1 / M1G.
+ *
+ * Строка 1.1 прямо исключает «ТС, оснащённые различными типами гибридных силовых установок»,
+ * поэтому любой гибрид, включая EREV, идёт по строке 1.2 — от объёма ДВС.
+ */
 export function calcUtil(
   face: PersonType,
   engineType: EngineType,
   volumeCc: number,
   age: Age,
 ): number {
-  const ageKey: 'under3' | 'over3' = age === Age.Under3 ? 'under3' : 'over3';
+  const ageKey: UtilAgeKey = age === Age.Under3 ? 'under3' : 'over3';
+
   if (face === PersonType.Individual) return UTIL_INDIVIDUAL[ageKey];
-  for (const row of UTIL_LEGAL) {
-    if (row.type === engineType && volumeCc <= row.maxCc) return row[ageKey];
-  }
-  return 0;
+  if (engineType === EngineType.Electric) return UTIL_LEGAL_ELECTRIC[ageKey];
+
+  const row =
+    UTIL_LEGAL_BY_VOLUME.find(r => volumeCc <= r.maxCc) ??
+    UTIL_LEGAL_BY_VOLUME[UTIL_LEGAL_BY_VOLUME.length - 1];
+  return row[ageKey];
 }
 
 export function calculate(params: CalculateParams): CalculateResult {
@@ -182,10 +295,14 @@ export function calculate(params: CalculateParams): CalculateResult {
   const priceEur = toEur(price, currency, rates);
   const priceUsd = priceEur * rates.eur / rates.usd;
 
-  let dutyEur = engineType !== EngineType.Electric
-    ? calcDutyEur(age, priceEur, volume)
-    : 0;
-  if (discount) dutyEur *= 0.5;
+  const discountApplied = discount && face === PersonType.Individual;
+
+  let dutyEur = calcDutyEur(age, priceEur, volume, engineType);
+  let vatEur = vatApplies(face, engineType) ? (priceEur + dutyEur) * VAT_PCT : 0;
+  if (discountApplied) {
+    dutyEur *= 0.5;
+    vatEur *= 0.5;
+  }
 
   const utilByn = calcUtil(face, engineType, volume, age);
 
@@ -196,18 +313,17 @@ export function calculate(params: CalculateParams): CalculateResult {
 
   const commissionEur = priceEur * commission / 100;
 
-  const totalEur = priceEur + commissionEur + dutyEur + fixedEur + utilByn / rates.eur;
+  const totalEur = priceEur + commissionEur + dutyEur + vatEur + fixedEur + utilByn / rates.eur;
   const totalUsd = totalEur * rates.eur / rates.usd;
 
-  const dutyNote = engineType === EngineType.Electric
-    ? '(электромобиль)'
-    : (discount ? '(−50% Указ №140)' : '');
+  const dutyNote = buildDutyNote(engineType, discountApplied);
 
   return {
     priceEur,
     priceUsd,
     dutyEur,
     dutyNote,
+    vatEur,
     utilByn,
     commissionEur,
     totalEur,
